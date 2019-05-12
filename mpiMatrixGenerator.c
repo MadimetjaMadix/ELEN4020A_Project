@@ -26,12 +26,12 @@ void generateRandomNumbers(int* buffer, int N)
 
 int main( int argc, char *argv[] )
 {
-		srand(time(NULL));
+		
     int errs = 0, err;
     int size, rank, *randomNumbersBuffer;
     
     int n[5]= {8, 16, 32, 64, 128};
-		char nsize[15];
+		char nsize[30];
     
     MPI_File fh;
     MPI_Comm comm;
@@ -40,8 +40,9 @@ int main( int argc, char *argv[] )
     MPI_Init( &argc, &argv );
     comm = MPI_COMM_WORLD;
     
-		for(int i = 0; i < 5;i++)
+		for(int i = 0; i < 5; i++)
 		{
+			
 			char* filename = "matrixFile_";
 			int N = n[i];
 			
@@ -51,7 +52,7 @@ int main( int argc, char *argv[] )
 			
 			// Open file:
 		  err = MPI_File_open(comm, filename, MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &fh);
-		  
+		  MPI_Offset displace = 0;
 		  if (err)
 		  {
 		      MPI_Abort(MPI_COMM_WORLD, 911);
@@ -59,24 +60,29 @@ int main( int argc, char *argv[] )
 		  
 		  MPI_Comm_size( comm, &size );
 		  MPI_Comm_rank( comm, &rank );
+		  srand(rank*time(NULL));
+		  if(rank == 0)
+		  {	
+		  	MPI_Offset temp = 1;
+		  	// Write Size of matrix as first element:
+				err = MPI_File_write(fh, (n+i), temp, MPI_INT, &status);
+		  }//if
 		  
 		  // Divide the matrix size into chunks:
 		  MPI_Offset chunk_size = (N*N/size);
-		  // Create the offset based on rank:
-		  MPI_Offset displace = (rank+1)*(int)chunk_size*sizeof(int); // start of the view for each processor
 		  
 		  // Allocate memory for the chunk size:
-		  randomNumbersBuffer = (int*)malloc((int)chunk_size * sizeof(int) );
-		  
-		  // Write Size of matrix as first element:
-		  err = MPI_File_write_all(fh, (n+i), 1, MPI_INT, &status);
+		  randomNumbersBuffer = (int*)malloc((int)chunk_size * sizeof(int));
 		  
 		  // Generate numbers:
 			generateRandomNumbers(randomNumbersBuffer, (int)chunk_size);
 			
 			// Write to file:
-			MPI_File_set_view(fh, displace, MPI_INT, MPI_INT, "native", MPI_INFO_NULL );
-		  err = MPI_File_write( fh, randomNumbersBuffer, chunk_size, MPI_INT, &status );
+		  // Create the offset based on rank:
+		  displace = ((rank*chunk_size)+1 )*sizeof(int); // start of the view for each processor
+			
+		  MPI_File_set_view(fh, displace, MPI_INT, MPI_INT, "native", MPI_INFO_NULL );
+		  err = MPI_File_write_all(fh, randomNumbersBuffer, chunk_size, MPI_INT, &status );
 		  if (err) { errs++; }
 		  
 		  // Free buffer:
