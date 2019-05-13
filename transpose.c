@@ -26,6 +26,7 @@ int main(int argc, char** argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
+
 	MPI_File fh;
 	MPI_Status status;
 	
@@ -36,6 +37,16 @@ int main(int argc, char** argv)
 	MPI_File_read(fh, tmp_buffer, 1, MPI_INT, &status ); // Matrix size
 	N = tmp_buffer[0];
 	free(tmp_buffer);
+	
+	if (N%num_procs != 0 && ((num_procs < N ) || (num_procs > N)))
+	{
+	  if (rank == 0)
+			printf ("Error, number of processes must be multiples of %d , and less than it. \n", N);
+		
+		MPI_File_close(&fh);
+	  	MPI_Finalize ();
+	  	return 1;
+	}
 	
 	int m  = (int)(N/num_procs);
 	
