@@ -1,0 +1,148 @@
+/* 
+ * This program demonstrates the use of MPI_Alltoall when
+ * transpsong a square matrix.
+ * For simplicity, the number of processes is 4 and the dimension
+ * of the matrix is fixed to 128
+ */
+
+#include <stdio.h>
+#include <mpi.h>
+
+void trans (int *a, int n)
+/* transpose square matrix a, dimension nxn
+ * Consider this as a black box for the MPI course
+ */
+
+{
+  int i, j;
+  int ij, ji, l;
+  double tmp;
+  ij = 0;
+  l = -1;
+  for (i = 0; i < n; i++)
+    {
+      l += n + 1;
+      ji = l;
+      ij += i + 1;
+      for (j = i+1; j < n; j++)
+	{
+	  tmp = a[ij];
+	  a[ij] = a[ji];
+	  a[ji] = tmp;
+	  ij++;
+	  ji += n;
+	}
+    }
+}
+
+void print(int *a,  int m){
+   
+   
+  int i, j;
+  int ij, l;
+  double tmp;
+  ij = 0;
+  l = -1;
+  for (i = 0; i < m; i++)
+    {
+      l += m + 1;
+      ij += i + 1;
+      for (j = 0; j < m; j++)
+	{
+	  tmp = a[ij];
+	  printf("%f  ",tmp);
+	 	
+	}
+	printf("\n");
+    }
+
+}
+
+int main (int argc, char *argv[])
+{
+  int n = 8;
+
+  //int blocks = n/m;
+
+  
+
+  int i, j, nprocs, rank;
+
+  MPI_Init (&argc, &argv);
+  MPI_Comm_size (MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank (MPI_COMM_WORLD, &rank);
+  int m = n/nprocs;
+  int a[n][m];
+  int b[n][m];
+  
+  if(rank == 0)
+  {
+    printf("Transposing a %d x %d matrix, divided among 4 processors\n", n,n);
+  }
+  if (n%nprocs != 0 && (nprocs<n))
+    {
+      if (rank == 0)
+	printf ("Error, number of processes must be 4\n");
+      MPI_Finalize ();
+      return 1;
+    }
+    
+  for (i = 0; i < n; i++)
+    for (j = 0; j < m; j++)
+      a[i][j] =(int)( 1 * i + j + m * rank); /* give every element a unique value */
+	//if(rank == 0)
+  	//{
+   		printf("======================== Rank  %d ============================\n",rank);
+      	for (i = 0; i < nprocs; i++)
+     		print (&a[i * m][0], m);
+  	// }
+  /* do the MPI part of the transpose */
+
+  /* Tricky here is the number of items to send and receive. 
+   * Not 128x32 as one may guess, but the amount to send to one process
+   * and the amount to receive from any process */
+
+  MPI_Alltoall (&a[0][0],	/* address of data to send  */
+		m * m,	/* number of items to send to one process  */
+		MPI_INT,	/* type of data  */
+		&b[0][0],	/* address for receiving the data  */
+		/* NOTE: send data and receive data may NOT overlap */
+		m * m,	/* number of items to receive 
+				   from any process  */
+		MPI_INT,	/* type of receive data  */
+		MPI_COMM_WORLD);
+
+  /* MPI_Alltoall does not a transpose of the data received, we have to
+   * do this ourself: */
+
+  /* transpose 4 square matrices, order 32x32: */
+
+  for (i = 0; i < nprocs; i++)
+      trans (&b[i * m][0], m);
+
+  /* now check the result */
+  if(rank == 0)
+  {
+   	printf("========================Transposed rank %d ============================\n",rank);
+    for (i = 0; i < nprocs; i++)
+    	print (&b[i * m][0],m);
+  }
+  
+  for (i = 0; i < n; i++)
+    for (j = 0; j < m; j++)
+      {
+	if (b[i][j] != (int)(1* (j + m * rank) + i) )
+	  {
+	    printf ("process %d found b[%d][%d] = %d, but %d was expected\n",
+		    rank, i, j, b[i][j], (int) (1 * (j + m * rank) + i));
+	    MPI_Abort (MPI_COMM_WORLD,1);
+	    return 1;
+	  }
+      }
+  if (rank == 0)
+    printf ("Transpose seems ok\n");
+
+  MPI_Finalize ();
+  return 0;
+}
+

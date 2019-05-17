@@ -103,9 +103,9 @@ int main (int argc, char *argv[])
 	
 	err = MPI_File_open(comm, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	if (err)
-	{
+  {
 		MPI_Abort(MPI_COMM_WORLD, 911);
-	}
+  }
 	
 	buf = (int *)malloc(sizeof(int) );
 	MPI_File_read( fh, buf, 1, MPI_INT, &status ); // Matrix size

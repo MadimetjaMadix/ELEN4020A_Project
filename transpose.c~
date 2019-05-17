@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 #include <mpi.h>
 
 
@@ -16,25 +14,23 @@ int getElementLocation2D(int index[2], int N)
 
 int main(int argc, char** argv)
 {
-	struct timeval start, end;
-	gettimeofday(&start, NULL);
-	
 	char *input_filename = argv[1];
 	char *output_file_name = argv[2]; 
 
 	int rank, num_procs, N, *tmp_buffer, err = 0, errs = 0;
+	double startTime, endTime; 
 
 	MPI_Win win;
-	
+
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-	
+
 
 	MPI_File fh;
 	MPI_Status status;
 	
-	
+	startTime = MPI_Wtime();
 	// Open input file for reading:
 	err = MPI_File_open(MPI_COMM_WORLD, input_filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	tmp_buffer = (int *)malloc(sizeof(int) );
@@ -45,7 +41,7 @@ int main(int argc, char** argv)
 	if (N%num_procs != 0 && ((num_procs < N ) || (num_procs > N)))
 	{
 	  if (rank == 0)
-			printf ("Error, number of processes must be multiples of %d , and less than it. \n", N);
+			printf ("Error, number of processes must be multiples of %d and below it. \n", N);
 		
 		MPI_File_close(&fh);
 	  	MPI_Finalize ();
@@ -58,7 +54,7 @@ int main(int argc, char** argv)
 	int *sharedbuffer = (int *)malloc(N*m*sizeof(int));
 	
 	// Create window:
-	MPI_Win_create(sharedbuffer, N*m*sizeof(int), sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD, &win);
+	MPI_Win_create(sharedbuffer, N*m, sizeof(int), MPI_INFO_NULL, MPI_COMM_WORLD, &win);
 	
 	
 	// Read data from file:
@@ -110,23 +106,67 @@ int main(int argc, char** argv)
 	err = MPI_File_write(fh, localbuffer, block_length, MPI_INT, &status);
 	MPI_File_close(&fh);
 	if (err) { errs++; }
-
+	
+	endTime = MPI_Wtime();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) printf("===================== Transposition Results ===================== \n");
+	printf("Process %d: elapsed time: %f \n", rank, endTime - startTime);
+	
+	// Check Transpose:
+	if(rank == 0)
+	{
+		// Check transpose:
+		int* originalMatrix = (int*)malloc(N*N*sizeof(int));
+		err = MPI_File_open(MPI_COMM_SELF, input_filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+		displace = 4;
+		MPI_File_set_view(fh, displace, MPI_INT, MPI_INT, "native", MPI_INFO_NULL );
+		MPI_File_read(fh, originalMatrix, N*N, MPI_INT, &status);
+		MPI_File_close(&fh);
+		
+		
+		int* transposedMatrix = (int*)malloc(N*N*sizeof(int));
+		err = MPI_File_open(MPI_COMM_SELF, output_file_name, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+		MPI_File_read(fh, transposedMatrix, N*N, MPI_INT, &status);
+		MPI_File_close(&fh);
+		
+		// Check elements:
+		for (int i = 0; i < N; i++)
+			for (int j = 0; j < N; j++)
+			{
+				int index[2] = {i,j};
+				int offsetTransposed = getElementLocation2D(index, N);
+				index[0] = j;
+				index[1] = i;
+				int offsetOriginal   = getElementLocation2D(index, N);
+				if (*(transposedMatrix+offsetTransposed) != *(originalMatrix+offsetOriginal))
+				{
+					printf ("process %d found transposed[%d][%d] = %d, but %d was expected\n",
+					rank, i, j, *(transposedMatrix+offsetTransposed), *(originalMatrix+offsetOriginal));
+					MPI_Abort (MPI_COMM_WORLD, 1);
+					MPI_File_close(&fh);
+				
+					// Free memory
+					free(transposedMatrix);
+					free(originalMatrix);
+					MPI_Win_free(&win);
+					free(sharedbuffer);
+					free(localbuffer);
+					MPI_Finalize ();
+					return 1;
+				}
+			}//for
+	 
+		printf("Transpose is looking good!\n");
+		
+		free(transposedMatrix);
+		free(originalMatrix);
+	}//if
+	
 	
 	MPI_Win_free(&win);
 	free(sharedbuffer);
 	free(localbuffer);
 	MPI_Finalize();
-	
-	if(rank == 0)
-	{
-		gettimeofday(&end, NULL);
-
-		double time_taken; 
-		time_taken = (end.tv_sec - start.tv_sec) * 1e6; 
-		time_taken = (time_taken + (end.tv_usec -  
-		                          start.tv_usec)) * 1e-6;
-		printf("time taken %7f \n", time_taken);
-	}
 	return err;
 }
 
