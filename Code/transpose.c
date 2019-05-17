@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 	gettimeofday(&start, NULL);
 	
 	char *input_filename = argv[1];
-	char *output_file_name = argv[2]; 
+	char *output_file_name = argv[1]; 
 
 	int rank, num_procs, N, *tmp_buffer, err = 0, errs = 0;
 
@@ -104,7 +104,7 @@ int main(int argc, char** argv)
     }
  	
  	// Save local buffers with transposed elements to file:
-	displace = ((rank*block_length))*sizeof(int); // start of the view for each processor
+	displace = ((rank*block_length)+1)*sizeof(int); // start of the view for each processor
 	MPI_File_set_view(fh, displace, MPI_INT, MPI_INT, "native", MPI_INFO_NULL );
 
 	err = MPI_File_write(fh, localbuffer, block_length, MPI_INT, &status);
