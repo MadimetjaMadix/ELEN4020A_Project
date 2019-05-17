@@ -8,13 +8,16 @@ The problem definition is simply to develop and implement a parallel matrix tran
 algorithm for very large datasets that will be held out-of-core, in a file.
 
 ##### program execution
-The code requires a mpich3 library in order for it to be executed. The code can be executed
+The code requires a mpich3 library in order for it to be executed. The [code](https://github.com/MadimetjaMadix/ELEN4020A_Project/tree/master/Code) can be executed
 in the following maner:
 - mpicc -o transpose transpose.c
-- mpiexec -np <np> ./transpose matrixFile_<n>
-where: np represent the number of threads/processors
-	   n represents the matrix size
+- mpiexec -np **np** ./transpose matrixFile_**n**
+
+where: **np** represent the number of threads/processors.
+
+**n** represents the matrix size.
 
 ##### Work allocation
 The number of commits for this repo does not reflect upon the contribution for the project. The
- true reflection of the work allocation can be found in the project report in the Appendix.  
+ true reflection of the work allocation can be found in the project [report](https://github.com/MadimetjaMadix/ELEN4020A_Project/tree/master/Report) in the Appendix.
+ 
