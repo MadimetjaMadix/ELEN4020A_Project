@@ -11,7 +11,7 @@ algorithm for very large datasets that will be held out-of-core, in a file.
 The code requires a mpich3 library in order for it to be executed. The [code](https://github.com/MadimetjaMadix/ELEN4020A_Project/tree/master/Code) can be executed
 in the following maner:
 - mpicc -o transpose transpose.c
-- mpiexec -np **np** ./transpose matrixFile_**n**
+- mpiexec -np **np** ./transpose matrixFile_**n**.bin
 
 where: **np** represent the number of threads/processors.
 
